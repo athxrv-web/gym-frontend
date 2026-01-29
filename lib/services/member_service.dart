@@ -1,14 +1,39 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart'; // ImagePicker ke liye
-import 'package:flutter/foundation.dart'; // kIsWeb ke liye
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'auth_service.dart';
 
 class MemberService {
-  // Live Render URL
-  final String baseUrl = "https://gym-backend-4qbx.onrender.com/api";
+  // Global URL use karenge
+  static const String baseUrl = AuthService.baseUrl;
 
-  // 📋 GET ALL MEMBERS
+  // ✅ 1. PROPER MEMBER LOGIN (Token Free)
+  Future<Map<String, dynamic>?> getMemberByPhone(String phone) async {
+    try {
+      final url = Uri.parse('$baseUrl/members/status/check/'); // ✅ Naya URL
+      print("🔵 Checking Phone: $phone");
+
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"}, // ⚠️ No Auth Header Here
+        body: jsonEncode({"phone": phone}),
+      );
+
+      print("🟡 Status: ${response.statusCode}");
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body); // 🎉 Member Mil Gaya
+      } else {
+        return null; // ❌ Member Nahi Mila
+      }
+    } catch (e) {
+      print("🔴 Error checking member: $e");
+      return null;
+    }
+  }
+
+  // ✅ 2. GET ALL MEMBERS (For Admin - Secure)
   Future<List<dynamic>> getAllMembers() async {
     try {
       final token = await AuthService.getToken();
@@ -18,88 +43,53 @@ class MemberService {
         Uri.parse('$baseUrl/members/'),
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Token $token", // ⚠️ 'Bearer' ki jagah 'Token' use karo
+          "Authorization": "Bearer $token",
         },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Backend pagination use kar raha hai toh 'results' key check karo
-        if (data is Map && data.containsKey('results')) {
-          return data['results'];
-        } else if (data is List) {
-          return data;
-        }
+        if (data is Map && data.containsKey('results')) return data['results'];
+        if (data is List) return data;
       }
       return [];
     } catch (e) {
-      print("GET Error: $e");
       return [];
     }
   }
 
-  // ➕ ADD MEMBER (Multipart Request for Image)
+  // ✅ 3. ADD MEMBER (For Admin - Secure)
   Future<String> addMember(Map<String, dynamic> memberData, XFile? imageFile) async {
     final token = await AuthService.getToken();
-    if (token == null) return "Login Expired! Please login again.";
+    if (token == null) return "Login Required";
 
     try {
       var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/members/'));
+      request.headers.addAll({"Authorization": "Bearer $token"});
 
-      // Headers
-      request.headers.addAll({
-        "Authorization": "Token $token", // ⚠️ 'Bearer' -> 'Token'
-      });
+      memberData.forEach((key, value) => request.fields[key] = value.toString());
 
-      // Fields (Sabko String mein convert karke bhejo)
-      memberData.forEach((key, value) {
-        request.fields[key] = value.toString();
-      });
-
-      // Image Handling
       if (imageFile != null) {
         if (kIsWeb) {
-          var bytes = await imageFile.readAsBytes();
-          request.files.add(http.MultipartFile.fromBytes(
-            'profile_image',
-            bytes,
-            filename: 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg',
-          ));
+          request.files.add(http.MultipartFile.fromBytes('profile_image', await imageFile.readAsBytes(), filename: 'photo.jpg'));
         } else {
-          request.files.add(await http.MultipartFile.fromPath(
-            'profile_image',
-            imageFile.path,
-          ));
+          request.files.add(await http.MultipartFile.fromPath('profile_image', imageFile.path));
         }
       }
 
-      // Send Request
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return "SUCCESS";
-      } else {
-        return "Server Error (${response.statusCode}): ${response.body}";
-      }
+      var response = await http.Response.fromStream(await request.send());
+      return (response.statusCode == 201 || response.statusCode == 200) ? "SUCCESS" : "Error: ${response.body}";
     } catch (e) {
-      return "Network Error: $e";
+      return "Error: $e";
     }
   }
 
-  // 🗑️ DELETE MEMBER (ID is now String/UUID)
-  Future<bool> deleteMember(String id) async { // ⚠️ 'int' ko 'String' kar diya
+  // ✅ 4. DELETE MEMBER (For Admin - Secure)
+  Future<bool> deleteMember(String id) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) return false;
-
-      final response = await http.delete(
-        Uri.parse('$baseUrl/members/$id/'),
-        headers: {
-          "Authorization": "Token $token", // ⚠️ 'Bearer' -> 'Token'
-        },
-      );
-
+      final response = await http.delete(Uri.parse('$baseUrl/members/$id/'), headers: {"Authorization": "Bearer $token"});
       return response.statusCode == 204 || response.statusCode == 200;
     } catch (e) {
       return false;

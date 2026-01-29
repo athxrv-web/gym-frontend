@@ -7,14 +7,21 @@ class UserHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 🛡️ Data Safety (Crash Proofing)
     final name = user['name'] ?? "Warrior";
-    final expiryStr = user['membership_end_date'] ?? "2024-01-01";
+    final expiryStr = user['membership_end_date'] ?? DateTime.now().toIso8601String();
     final plan = user['membership_type'] ?? "Monthly";
     
-    // Days Calculation
-    final expiry = DateTime.parse(expiryStr);
-    final daysLeft = expiry.difference(DateTime.now()).inDays;
-    final isExpired = daysLeft < 0;
+    // 📅 Date Logic
+    int daysLeft = 0;
+    bool isExpired = true;
+    try {
+      final expiry = DateTime.parse(expiryStr);
+      daysLeft = expiry.difference(DateTime.now()).inDays;
+      isExpired = daysLeft < 0;
+    } catch (e) {
+      print("Date Error: $e");
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -28,17 +35,21 @@ class UserHomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // 1. Profile Photo
+            // 1. Photo
             Container(
               height: 120, width: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: isExpired ? AppColors.red : AppColors.electricBlue, width: 4),
-                image: user['profile_image'] != null 
-                  ? DecorationImage(image: NetworkImage(user['profile_image']), fit: BoxFit.cover)
-                  : null,
+                border: Border.all(color: isExpired ? Colors.red : AppColors.electricBlue, width: 4),
               ),
-              child: user['profile_image'] == null ? const Icon(Icons.person, size: 60, color: Colors.grey) : null,
+              child: ClipOval(
+                child: (user['profile_image'] != null)
+                  ? Image.network(
+                      user['profile_image'], fit: BoxFit.cover,
+                      errorBuilder: (c, o, s) => const Icon(Icons.person, size: 60, color: Colors.grey),
+                    )
+                  : const Icon(Icons.person, size: 60, color: Colors.grey),
+              ),
             ),
             const SizedBox(height: 20),
             
@@ -53,12 +64,12 @@ class UserHomeScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: isExpired ? AppColors.red : AppColors.green),
+                border: Border.all(color: isExpired ? Colors.red : AppColors.green),
               ),
               child: Column(
                 children: [
                   Text(isExpired ? "MEMBERSHIP EXPIRED" : "MEMBERSHIP ACTIVE", 
-                    style: TextStyle(color: isExpired ? AppColors.red : AppColors.green, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+                    style: TextStyle(color: isExpired ? Colors.red : AppColors.green, fontWeight: FontWeight.bold, letterSpacing: 1.5)
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -66,25 +77,16 @@ class UserHomeScreen extends StatelessWidget {
                     style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  Text("Valid till: $expiryStr", style: const TextStyle(color: Colors.grey)),
+                  Text("Valid till: ${expiryStr.split('T')[0]}", style: const TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // 3. Plan Details
+            // 3. Info Tiles
             _buildInfoTile("Current Plan", plan, Icons.fitness_center),
             _buildInfoTile("Joining Date", user['join_date'] ?? "-", Icons.calendar_today),
             _buildInfoTile("Weight", "${user['weight'] ?? '-'} Kg", Icons.monitor_weight),
-            
-            const SizedBox(height: 30),
-            if(isExpired)
-              ElevatedButton.icon(
-                onPressed: () {}, 
-                icon: const Icon(Icons.payment),
-                label: const Text("CONTACT ADMIN TO RENEW"),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.red, foregroundColor: Colors.white),
-              )
           ],
         ),
       ),

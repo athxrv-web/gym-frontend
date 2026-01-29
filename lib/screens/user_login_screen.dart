@@ -14,42 +14,33 @@ class _UserLoginScreenState extends State<UserLoginScreen> {
   final MemberService _memberService = MemberService();
   bool _isLoading = false;
 
-  Future<void> _checkNumber() async {
+  Future<void> _login() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Apna Number daalo bhai!")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Phone Number required!")));
       return;
     }
 
     setState(() => _isLoading = true);
 
-    // 1. Saare members lao
-    final allMembers = await _memberService.getAllMembers();
+    // ✅ PROPER CALL: Backend se pucho
+    final userData = await _memberService.getMemberByPhone(phone);
 
     setState(() => _isLoading = false);
 
-    // 2. Check karo number hai ya nahi
-    try {
-      final user = allMembers.firstWhere(
-        (m) => m['phone'].toString() == phone,
-        orElse: () => {},
+    if (userData != null) {
+      // ✅ SUCCESS
+      Navigator.pushReplacement(
+        context, 
+        MaterialPageRoute(builder: (_) => UserHomeScreen(user: userData))
       );
-
-      if (user.isNotEmpty) {
-        // ✅ Mil gaya! Jao Andar
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (_) => UserHomeScreen(user: user))
-        );
-      } else {
-        // ❌ Nahi mila
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Number Not Found! Admin se baat karo."), backgroundColor: AppColors.red)
-        );
-      }
-    } catch (e) {
+    } else {
+      // ❌ FAIL
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Connection Error! (Shayad Admin Login chahiye)"), backgroundColor: AppColors.red)
+        const SnackBar(
+          content: Text("Member Not Found! Contact Admin."), 
+          backgroundColor: Colors.red
+        )
       );
     }
   }
@@ -90,7 +81,7 @@ class _UserLoginScreenState extends State<UserLoginScreen> {
               width: double.infinity,
               height: 55,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _checkNumber,
+                onPressed: _isLoading ? null : _login,
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.electricBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 child: _isLoading 
                   ? const CircularProgressIndicator(color: Colors.black)

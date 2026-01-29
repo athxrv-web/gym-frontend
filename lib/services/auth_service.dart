@@ -3,57 +3,58 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  // 1. Live Server URL
+  // ✅ Live Backend URL
   static const String baseUrl = "https://gym-backend-4qbx.onrender.com/api";
 
-  // Login Function
   static Future<Map<String, dynamic>> login(String emailInput, String password) async {
-    print("🔵 ATTEMPTING LOGIN...");
-    print("Email Sent: $emailInput");
+    print("🔵 LOGIN ATTEMPT: $emailInput");
 
     try {
-      // 2. Endpoint FIX: '/login/' use karo ('/token/' galat tha)
+      // 1. URL FIX: Screenshot confirm karta hai ki ye '/token/' hai
+      final url = Uri.parse('$baseUrl/token/'); 
+
       final response = await http.post(
-        Uri.parse('$baseUrl/login/'), 
+        url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'username': emailInput, // Django 'username' field expect karta hai
+          'username': emailInput, // Django default 'username' key maangta hai
           'password': password
         }),
       );
 
-      print("🟡 RESPONSE STATUS: ${response.statusCode}");
-      print("🟡 RESPONSE BODY: ${response.body}");
+      print("🟡 Status: ${response.statusCode}");
+      print("🟡 Body: ${response.body}");
 
-      // Response ko decode karo
+      // ERROR CHECK: Agar HTML (Oops page) aaya
+      if (response.body.toString().contains("<")) {
+         return {'success': false, 'detail': 'Server Error (HTML received). Path galat hai.'};
+      }
+
       final data = jsonDecode(response.body);
 
-      // 3. Token Check: Backend 'token' deta hai, 'access' nahi
-      if (response.statusCode == 200 && data['token'] != null) {
-        // ✅ SUCCESS
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        return {'success': true};
-      } else {
-        // ❌ FAIL
-        return {
-          'success': false,
-          'detail': data['detail'] ?? data['non_field_errors']?.toString() ?? 'Login Failed'
-        };
-      }
+      if (response.statusCode == 200) {
+        // 2. TOKEN KEY FIX: Screenshot mein 'access' likha tha
+        String? token = data['access']; 
+        
+        if (token != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', token);
+          return {'success': true};
+        }
+      } 
+      
+      return {'success': false, 'detail': 'Invalid Email or Password'};
+
     } catch (e) {
-      print("🔴 CONNECTION ERROR: $e");
-      return {'success': false, 'detail': 'Server Error: $e'};
+      return {'success': false, 'detail': 'Connection Error: $e'};
     }
   }
 
-  // Token Getter
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
 
-  // Logout
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
