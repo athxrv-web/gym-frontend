@@ -1,0 +1,43 @@
+name: gym_admin_panel
+description: A new Flutter project for Gym Management.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ✅ NETWORKING & STORAGE
+  http: ^1.1.0
+  shared_preferences: ^2.2.1
+
+  # ✅ MEDIA & FILES
+  image_picker: ^1.0.4
+  path_provider: ^2.1.1 # PDF save karne ke liye
+  
+  # ✅ PDF GENERATION
+  pdf: ^3.10.4
+  printing: ^5.11.0
+  
+  # ✅ UTILS
+  url_launcher: ^6.1.14 # WhatsApp ke liye
+  intl: ^0.18.1         # Date formatting ke liye (Optional but good)
+
+  # ✅ ICONS
+  cupertino_icons: ^1.0.2
+  provider: ^6.1.5+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+
+  # ✅ ASSETS (Logo ke liye)
+  assets:
+    - assets/
